@@ -15,9 +15,7 @@ TCP Performance Improvement over Wireless Links using SDN
 2. Clone this repo
 3. Run the contoller and topology scripts in different terminals
 4. On Mininet-CLI type these commands 
-   sh ifconfig hwsim0 up
-   xterm h1 ap1 sta1
-   wireshark &
+   "sh ifconfig hwsim0 up", "xterm h1 ap1 sta1", "wireshark &"
 5. On ap1 xterm run ./sta1.py
 6. On h1 xterm run iperf -s 100
 7. On sta1 run iperf -c -t 100
