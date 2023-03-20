@@ -59,9 +59,9 @@ class SimpleSwitch13(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         # checking for associataion has occurred or not via ass_flag.
-        f=open('/home/wifi/ACN/Project/alert.txt','r')
-        self.ass_flag=f.read()
-        f.close()
+        # f=open('/home/wifi/ACN/Project/alert.txt','r')
+        # self.ass_flag=f.read()
+        # f.close()
 
         if ev.msg.msg_len < ev.msg.total_len:
             self.logger.debug("packet truncated: only %s of %s bytes",
@@ -119,63 +119,76 @@ class SimpleSwitch13(app_manager.RyuApp):
                     data_len=total_len-((ip_header_len+tcp_header)*4)
                     requried_ack=(t.seq + data_len )
                     data=ev.msg
-                    # creating temp to store the tcp segment
-                    temp={}
-                    temp[src]=src
-                    temp[dst]=dst
-                    #print("tcp packet send from ",src,"  =>  ",dst)
-                    #print("ack we got is => ",t.ack)
-                    
-                    temp["src_port"]=t.src_port
-                    temp["dst_port"]=t.dst_port
-                    temp["msg"]=data
-                    
-                    self.tcp_msg_dict[src][requried_ack]=temp
-                    src_to_dst=str(src)+str(dst)
-                    self.tcp_dup_ack.setdefault(src_to_dst,[-3,-2,-1])
-                    self.tcp_dup_ack[src_to_dst]=(self.tcp_dup_ack[src_to_dst])[1:]
-                    
-                    self.tcp_dup_ack[src_to_dst].append(t.ack)
-                    #print("got an tcp packet with the src port has",t.src_port)
-                    
-                    for keys in list(self.tcp_msg_dict[dst]):
-                        if(keys<t.ack):
-                            self.tcp_msg_dict[dst].pop(keys)
-                        else:
-                            break
-                    # Below is the tcp code for 3 duplicate ack.
-                    if self.tcp_dup_ack[src_to_dst][0]==self.tcp_dup_ack[src_to_dst][1] and self.tcp_dup_ack[src_to_dst][1]==self.tcp_dup_ack[src_to_dst][2] and self.tcp_dup_ack[src_to_dst][2]==self.tcp_dup_ack[src_to_dst][0] and len(self.tcp_msg_dict[dst].keys())!=0:
-                        actions=[parser.OFPActionOutput(port=in_port)]
-                        self.temp=self.tcp_dup_ack[src_to_dst]
 
-                        self.tcp_dup_ack[src_to_dst]=[-3,-2,-1] 
-                        next_to=min(self.tcp_msg_dict[dst].keys())
+                    if (srcip == "10.0.0.4" & data == "0"):
+                        print("Got Association Request")
 
-                        print("Three duplicate ack =>",self.temp[0],self.temp[1],self.temp[2]," discard dup ack=>=>resend the tcp packet")
-                        data=self.tcp_msg_dict[dst][next_to]["msg"]
-                    # Below is the tcp code for handoff association event.   
-                    elif self.ass_flag=="1":
-                        actions=[parser.OFPActionOutput(port=out_port)]
-                        print("********Sending the bulk packets because of handoff**********")
-                        print("The number of packet present in the buffer during the handoff=>",len(self.tcp_msg_dict[dst].keys()))
-                        print()
-                        for next_to in self.tcp_msg_dict[dst].keys():
-                            data=self.tcp_msg_dict[dst][next_to]["msg"]
-                            # print(msg)
-                            print("Controller is currently transmitting the packet having the sequence",t.seq)
-                            out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,in_port=ofproto.OFPP_CONTROLLER, actions=actions, data=data.data)
-                            datapath.send_msg(out)
-                        self.ass_flag=0
-                        f=open('/home/wifi/ACN/Project/alert.txt','w')
-                        f.write("0")      
-                        f.close()
+                    elif (srcip == "10.0.0.4" & data == "1"):
+                        print("Got Association Response")
+
+                    elif (srcip == "10.0.0.4" & data == "10"):
+                        print("Got Dissociation Request")
+
+                    elif (srcip == "10.0.0.4" & data == "12"):
+                        print("Got Disauthentication Requesr")
+
                     else:
-                        #print("No anomaly detected =>=> exhibiting normal tcp behavior")
-                        actions=[parser.OFPActionOutput(port=out_port)]
-                    out=parser.OFPPacketOut(datapath=datapath,in_port=ofproto.OFPP_CONTROLLER,actions=actions,data=data)
-                    
-                    
 
+                        # creating temp to store the tcp segment
+                        temp={}
+                        temp[src]=src
+                        temp[dst]=dst
+                        #print("tcp packet send from ",src,"  =>  ",dst)
+                        #print("ack we got is => ",t.ack)
+                        
+                        temp["src_port"]=t.src_port
+                        temp["dst_port"]=t.dst_port
+                        temp["msg"]=data
+                        
+                        self.tcp_msg_dict[src][requried_ack]=temp
+                        src_to_dst=str(src)+str(dst)
+                        self.tcp_dup_ack.setdefault(src_to_dst,[-3,-2,-1])
+                        self.tcp_dup_ack[src_to_dst]=(self.tcp_dup_ack[src_to_dst])[1:]
+                        
+                        self.tcp_dup_ack[src_to_dst].append(t.ack)
+                        #print("got an tcp packet with the src port has",t.src_port)
+                        
+                        for keys in list(self.tcp_msg_dict[dst]):
+                            if(keys<t.ack):
+                                self.tcp_msg_dict[dst].pop(keys)
+                            else:
+                                break
+                        # Below is the tcp code for 3 duplicate ack.
+                        if self.tcp_dup_ack[src_to_dst][0]==self.tcp_dup_ack[src_to_dst][1] and self.tcp_dup_ack[src_to_dst][1]==self.tcp_dup_ack[src_to_dst][2] and self.tcp_dup_ack[src_to_dst][2]==self.tcp_dup_ack[src_to_dst][0] and len(self.tcp_msg_dict[dst].keys())!=0:
+                            actions=[parser.OFPActionOutput(port=in_port)]
+                            self.temp=self.tcp_dup_ack[src_to_dst]
+
+                            self.tcp_dup_ack[src_to_dst]=[-3,-2,-1] 
+                            next_to=min(self.tcp_msg_dict[dst].keys())
+
+                            print("Three duplicate ack =>",self.temp[0],self.temp[1],self.temp[2]," discard dup ack=>=>resend the tcp packet")
+                            data=self.tcp_msg_dict[dst][next_to]["msg"]
+                        # Below is the tcp code for handoff association event.   
+                        elif self.ass_flag=="1":
+                            actions=[parser.OFPActionOutput(port=out_port)]
+                            print("********Sending the bulk packets because of handoff**********")
+                            print("The number of packet present in the buffer during the handoff=>",len(self.tcp_msg_dict[dst].keys()))
+                            print()
+                            for next_to in self.tcp_msg_dict[dst].keys():
+                                data=self.tcp_msg_dict[dst][next_to]["msg"]
+                                # print(msg)
+                                print("Controller is currently transmitting the packet having the sequence",t.seq)
+                                out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,in_port=ofproto.OFPP_CONTROLLER, actions=actions, data=data.data)
+                                datapath.send_msg(out)
+                            self.ass_flag=0
+                            f=open('/home/wifi/ACN/Project/alert.txt','w')
+                            f.write("0")      
+                            f.close()
+                        else:
+                            #print("No anomaly detected =>=> exhibiting normal tcp behavior")
+                            actions=[parser.OFPActionOutput(port=out_port)]
+                        out=parser.OFPPacketOut(datapath=datapath,in_port=ofproto.OFPP_CONTROLLER,actions=actions,data=data)
+                    
                 #  If UDP Protocol
                 
                 elif protocol == in_proto.IPPROTO_UDP:
@@ -194,6 +207,5 @@ class SimpleSwitch13(app_manager.RyuApp):
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
 
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
