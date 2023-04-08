@@ -193,6 +193,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 elif protocol == in_proto.IPPROTO_UDP:
                 	
                     u = pkt.get_protocol(udp.udp)
+                    print(u.data)
                     match = parser.OFPMatch(eth_type=ether_types.ETH_TYPE_IP, ipv4_src=srcip, ipv4_dst=dstip, ip_proto=protocol, udp_src=u.src_port, udp_dst=u.dst_port,)            
 
                 # verify if we have a valid buffer_id, if yes avoid to send both
