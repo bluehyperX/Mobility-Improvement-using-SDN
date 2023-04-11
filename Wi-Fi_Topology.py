@@ -17,7 +17,7 @@ def myNetwork():
                     )
 
     info( '*** Adding controller\n' )
-    controller_ = net.addHost('con', ip='10.0.0.100/8', inNamespace=False)
+    # controller_ = net.addHost('con', ip='10.0.0.100/8', inNamespace=False)
     c0 = net.addController(name='c0', controller=RemoteController, ip='127.0.0.1', mac='00:00:00:00:00:08', port=6653)
 
     info( '*** Adding switches/APs\n')
@@ -53,7 +53,7 @@ def myNetwork():
     net.addLink(ap1, s4)
     net.addLink(ap2, s3)
     net.addLink(ap3, s5)
-    net.addLink(s1, controller_)
+    # net.addLink(s1, controller_)
 
     info( '*** Plotting graph\n')
     net.plotGraph(max_x=5000, max_y=4000)
@@ -70,7 +70,7 @@ def myNetwork():
 
     info( '*** Starting network, controller and switches/APs\n')
     net.build()
-    net.addNAT().configDefault()
+    # net.addNAT().configDefault()
     c0.start()
     s1.start([c0])
     s2.start([c0])
@@ -87,7 +87,7 @@ def myNetwork():
     c0.cmd('ifconfig hwsim0 up')
     # sta1.cmd('wireshark -i mon0 -k &')
     # c0.cmd('wireshark -i hwsim0 -k &')
-    c0.cmd('wireshark -i s1-eth1 -k &')
+    c0.cmd('wireshark &')
     # sta1.cmd('xterm -hold -e python sta1.py')
     c0.cmd('xterm -hold -e python sta1.py &')
 

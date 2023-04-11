@@ -82,17 +82,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         in_port = msg.match['in_port']
 
         pkt = packet.Packet(msg.data)
-
-        udp_pkt = pkt.get_protocol(udp.udp)
-        if udp_pkt:
-            # Display the UDP packet information on the console
-            print("UDP packet received:")
-            print(f"Source IP: {pkt.get_protocols(ipv4.ipv4)[0].src}")
-            print(f"Destination IP: {pkt.get_protocols(ipv4.ipv4)[0].dst}")
-            print(f"Source port: {udp_pkt.src_port}")
-            print(f"Destination port: {udp_pkt.dst_port}")
-            print(f"Payload: {udp_pkt.payload.load.decode('utf-8')}")
-
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
@@ -101,10 +90,16 @@ class SimpleSwitch13(app_manager.RyuApp):
         dst = eth.dst
         src = eth.src
 
+        udp_pkt = pkt.get_protocol(udp.udp)
+        if udp_pkt and udp_pkt.src_port==8000:
+            print("Disconnect packet received:")
+        elif udp_pkt and udp_pkt.src_port==8001:
+            print("Connect packet received:")
+
         dpid = format(datapath.id, "d").zfill(16)
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        # self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
