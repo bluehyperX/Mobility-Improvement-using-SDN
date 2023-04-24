@@ -69,17 +69,54 @@ class SimpleSwitch13(app_manager.RyuApp):
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
-    # def delete_flow(self, datapath, match):
-    #     ofproto = datapath.ofproto
-    #     parser = datapath.ofproto_parser
+    def add_mobile_flow(self, datapath, dst_mac):
+        # ofproto = datapath.ofproto
+        # parser = datapath.ofproto_parser
 
-    #     mod = parser.OFPFlowMod(
-    #         datapath=datapath,
-    #         match=match,
-    #         command=ofproto.OFPFC_DELETE,
-    #         out_port=ofproto.OFPP_ANY,
-    #         out_group=ofproto.OFPG_ANY)
-    #     datapath.send_msg(mod)
+        # match = parser.OFPMatch(in_port=in_port,
+        #                         dl_dst=addrconv.mac.text_to_bin(dst))
+        # mod = parser.OFPFlowMod(
+        #     datapath=datapath, match=match, cookie=0,
+        #     command=ofproto.OFPFC_ADD, actions=actions)
+        # datapath.send_msg(mod)
+
+        node_port = self.mac_to_port[datapath.id][dst_mac]
+        match = parser.OFPMatch(dl_dst=dst_mac)
+        actions = [parser.OFPActionOutput(node_port)]
+        # inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
+        # mod = parser.OFPFlowMod(datapath=datapath, match=match,
+        #                         command=ofproto.OFPFC_ADD,
+        #                         priority=1,
+        #                         instructions=inst)
+        mod = parser.OFPFlowMod(
+             datapath=datapath, match=match, cookie=0,
+             command=ofproto.OFPFC_ADD, actions=actions)
+        datapath.send_msg(mod)
+
+        # Send all the buffered packets to the mobile node
+        if dst_mac in self.buffered_packets:
+            for packet_data in self.buffered_packets[dst_mac]:
+                out = parser.OFPPacketOut(
+                    datapath=datapath, buffer_id=ofproto.OFP_NO_BUFFER,
+                    in_port=ofproto.OFPP_CONTROLLER, actions=actions,
+                    data=packet_data)
+                datapath.send_msg(out)
+
+        # Clear the buffered packets for the mobile node
+        del self.buffered_packets[dst_mac]
+        return
+
+    def del_mobile_flow(self, datapath, dst):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        match = parser.OFPMatch(dl_dst=dst)
+        mod = parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_DELETE)
+        datapath.send_msg(mod)
+        self.buffered_packets.setdefault(dst, [])
+
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -106,51 +143,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.mac_to_port.setdefault(datapath.id, {})
         self.mac_to_port[datapath.id][src_mac] = in_port
 
-        udp_pkt = pkt.get_protocol(udp.udp)
-        if udp_pkt and udp_pkt.src_port==8000:
-            print("Disconnect packet received:")
-            # print(f"Source IP: {pkt.get_protocols(ipv4.ipv4)[0].src}")
-            # print(f"Destination IP: {pkt.get_protocols(ipv4.ipv4)[0].dst}")
-            # print(f"Source port: {udp_pkt.src_port}")
-            # print(f"Destination port: {udp_pkt.dst_port}")
-            # print(f"Payload: {udp_pkt.data.decode('utf-8')}")
-            # print(f"Payload: {pkt.data[udp_pkt.offset:]}")
-
-            match = parser.OFPMatch(dl_dst=dst_mac)
-            mod = parser.OFPFlowMod(datapath=datapath, match=match,
-                                    command=ofproto.OFPFC_DELETE,
-                                    out_port=ofproto.OFPP_ANY,
-                                    out_group=ofproto.OFPG_ANY)
-            datapath.send_msg(mod)
-
-            self.buffered_packets.setdefault(dst_mac, [])
-            self.buffered_packets[dst_mac].append(msg.data)
-
-        else if udp_pkt and udp_pkt.src_port==8001:
-            print("Connect packet received:")
-            # Add flow rules for all traffic to the mobile node
-            node_port = self.access_ports[dst_mac][udp_pkt.dport] #Check this line!
-            match = parser.OFPMatch(dl_dst=dst_mac)
-            actions = [parser.OFPActionOutput(node_port)]
-            inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions)]
-            mod = parser.OFPFlowMod(datapath=datapath, match=match,
-                                    command=ofproto.OFPFC_ADD,
-                                    priority=1,
-                                    instructions=inst)
-            datapath.send_msg(mod)
-
-            # Send all the buffered packets to the mobile node
-            if dst_mac in self.buffered_packets:
-                for packet_data in self.buffered_packets[dst_mac]:
-                    out = parser.OFPPacketOut(
-                        datapath=datapath, buffer_id=ofproto.OFP_NO_BUFFER,
-                        in_port=ofproto.OFPP_CONTROLLER, actions=actions,
-                        data=packet_data)
-                    datapath.send_msg(out)
-
-                # Clear the buffered packets for the mobile node
-                del self.buffered_packets[dst_mac]
-
+        
         dpid = format(datapath.id, "d").zfill(16)
         self.mac_to_port.setdefault(dpid, {})
 
@@ -159,27 +152,53 @@ class SimpleSwitch13(app_manager.RyuApp):
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
 
-        if dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
+        udp_pkt = pkt.get_protocol(udp.udp)
+        if udp_pkt and udp_pkt.src_port==8000:
+            print("Disconnect packet received:")
+
+            # match = parser.OFPMatch(dl_dst=dst_mac)
+            # mod = parser.OFPFlowMod(datapath=datapath, match=match,
+            #                         command=ofproto.OFPFC_DELETE,
+            #                         out_port=ofproto.OFPP_ANY,
+            #                         out_group=ofproto.OFPG_ANY)
+            # datapath.send_msg(mod)
+
+            self.del_mobile_flow(datapath, dst_mac)
+            return
+
+        else if udp_pkt and udp_pkt.src_port==8001:
+            print("Connect packet received:")
+            # Add flow rules for all traffic to the mobile node
+            # node_port = self.access_ports[dst_mac][udp_pkt.dport] #Check this line!
+            self.add_mobile_flow(datapath, src_mac)
+            return
+
+
+        if dst_mac in self.buffered_packets:
+            self.buffered_packets[dst_mac].append(msg.data)
+
         else:
-            out_port = ofproto.OFPP_FLOOD
-
-        actions = [parser.OFPActionOutput(out_port)]
-
-        # install a flow to avoid packet_in next time
-        if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
-            # verify if we have a valid buffer_id, if yes avoid to send both
-            # flow_mod & packet_out
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                return
+            if dst_mac in self.mac_to_port[dpid]:
+                out_port = self.mac_to_port[dpid][dst]
             else:
-                self.add_flow(datapath, 1, match, actions)
-        data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
+                out_port = ofproto.OFPP_FLOOD
 
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
-        datapath.send_msg(out)
+            actions = [parser.OFPActionOutput(out_port)]
+
+            # install a flow to avoid packet_in next time
+            if out_port != ofproto.OFPP_FLOOD:
+                match = parser.OFPMatch(in_port=in_port, eth_dst=dst, eth_src=src)
+                # verify if we have a valid buffer_id, if yes avoid to send both
+                # flow_mod & packet_out
+                if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                    self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                    return
+                else:
+                    self.add_flow(datapath, 1, match, actions)
+            data = None
+            if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+                data = msg.data
+
+            out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
+                                      in_port=in_port, actions=actions, data=data)
+            datapath.send_msg(out)

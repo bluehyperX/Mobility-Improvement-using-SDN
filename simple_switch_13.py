@@ -90,12 +90,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         dst = eth.dst
         src = eth.src
 
-        udp_pkt = pkt.get_protocol(udp.udp)
-        if udp_pkt and udp_pkt.src_port==8000:
-            print("Disconnect packet received:")
-        elif udp_pkt and udp_pkt.src_port==8001:
-            print("Connect packet received:")
-
         dpid = format(datapath.id, "d").zfill(16)
         self.mac_to_port.setdefault(dpid, {})
 
@@ -103,6 +97,16 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
+
+        udp_pkt = pkt.get_protocol(udp.udp)
+        if udp_pkt and udp_pkt.src_port==8000:
+            print("Disconnect packet received:")
+            print(datapath.id)
+            return
+        elif udp_pkt and udp_pkt.src_port==8001:
+            print("Connect packet received:")
+            print(datapath.id)
+            return
 
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]

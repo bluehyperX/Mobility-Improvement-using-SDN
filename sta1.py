@@ -21,8 +21,17 @@ def pkt_callback(pkt):
     #     packet = Ether()/IP(dst="127.0.0.1")/UDP(sport=8000, dport=6653)/"Disassociation"
     #     sendp(packet, iface="con-eth0", verbose=0)
 
-    m ={"00:00:00:00:00:01":"ap1-eth2","00:00:00:00:00:02":"ap2-eth2","00:00:00:00:00:03":"ap3-eth2"}
+    # m ={"00:00:00:00:00:01":"ap1-eth2","00:00:00:00:00:02":"ap2-eth2","00:00:00:00:00:03":"ap3-eth2"}
     # m ={"00:00:00:00:00:01":"ap1-wlan1","00:00:00:00:00:02":"ap2-wlan1","00:00:00:00:00:03":"ap3-wlan1"}
+
+
+
+
+
+    #This send the packets to interfaces which are connected to the corresponding APs'. Then from those AP's these packets are sent to the controller 
+    #via packet-in. Now controller has the datapath of the AP's and can send add or delete flowmods to the APs
+    m ={"00:00:00:00:00:01":"s4-eth2","00:00:00:00:00:02":"s3-eth4","00:00:00:00:00:03":"s5-eth2"}   
+   
 
     if pkt.haslayer(Dot11) and pkt.type == 0 and pkt.subtype == 12:
         print("Disconnect")
@@ -37,6 +46,7 @@ def pkt_callback(pkt):
         payload_data = b'Disconnect'
         packet = Ether(src=pkt[Dot11].addr2, dst=pkt[Dot11].addr1)/IP(src="10.0.0.7", dst="127.0.0.1")/UDP(sport=8000, dport=6653)/Raw(load=payload_data)
         sendp(packet, iface=m[(pkt[Dot11].addr1)], verbose=0)
+        # sendp(packet, iface="s4-eth2", verbose=0)
 
     if pkt.haslayer(Dot11) and pkt.type == 0 and pkt.subtype == 1:
         print("Connect")
@@ -49,6 +59,7 @@ def pkt_callback(pkt):
         payload_data = b'Connect'
         packet = Ether(src=pkt[Dot11].addr1, dst=pkt[Dot11].addr2)/IP(src="10.0.0.7", dst="127.0.0.1")/UDP(sport=8001, dport=6653)/Raw(load=payload_data)
         sendp(packet, iface=m[pkt[Dot11].addr2], verbose=0)
+        # sendp(packet, iface="s4-eth2", verbose=0)
         
         # f = open('/home/wifi/ACN/Project/alert.txt', 'w+')
         # f.write("1")
