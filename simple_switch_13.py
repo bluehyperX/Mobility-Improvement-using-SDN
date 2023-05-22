@@ -21,11 +21,6 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
-from ryu.lib.packet import in_proto
-from ryu.lib.packet import ipv4
-from ryu.lib.packet import icmp
-from ryu.lib.packet import tcp
-from ryu.lib.packet import udp
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -93,20 +88,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         dpid = format(datapath.id, "d").zfill(16)
         self.mac_to_port.setdefault(dpid, {})
 
-        # self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
-
-        udp_pkt = pkt.get_protocol(udp.udp)
-        if udp_pkt and udp_pkt.src_port==8000:
-            print("Disconnect packet received:")
-            print(datapath.id)
-            return
-        elif udp_pkt and udp_pkt.src_port==8001:
-            print("Connect packet received:")
-            print(datapath.id)
-            return
 
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
